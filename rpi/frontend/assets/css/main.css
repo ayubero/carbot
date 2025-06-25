@@ -1,0 +1,13 @@
+@import "tailwindcss";
+
+* {
+  @apply text-slate-800;
+}
+
+h2 {
+  @apply font-medium text-2xl;
+}
+
+.main-container {
+  @apply w-full sm:w-1/2 h-full m-4 p-6 rounded-xl shadow-sm border-gray-200 border;
+}
