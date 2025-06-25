@@ -7,7 +7,7 @@
         <p>Speed (cm/s): {{ speed }}</p>
         <Slider v-model:value="speed" min="0" max="2" step="0.1" />
       </div>
-      <DirectionControl @move="sendMessage" />
+      <DirectionControl @move="sendMessage" :speed="speed" />
       <div class="py-4">
         <p>Console:</p>
         <div class="console">

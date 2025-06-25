@@ -1,11 +1,11 @@
 <template>
   <div class="grid-container">
     <div class="grid-item"></div>
-    <div class="grid-item" @click="emitMove('MOVE_FORWARD')">
+    <div class="grid-item" @click="emitMove('MOVE_FORWARD ' + props.speed)">
       <Triangle :fill="triangleColor" />
     </div>
     <div class="grid-item"></div>
-    <div class="grid-item" @click="emitMove('MOVE_LEFT')">
+    <div class="grid-item" @click="emitMove('MOVE_LEFT ' + props.speed)">
       <Triangle :fill="triangleColor" class="rotate-270" />
     </div>
     <div class="grid-item">
@@ -19,11 +19,11 @@
         @move="move"
       />
     </div>
-    <div class="grid-item" @click="emitMove('MOVE_RIGTH')">
+    <div class="grid-item" @click="emitMove('MOVE_RIGTH ' + props.speed)">
       <Triangle :fill="triangleColor" class="rotate-90" />
     </div>
     <div class="grid-item"></div>
-    <div class="grid-item" @click="emitMove('MOVE_BACKWARD')">
+    <div class="grid-item" @click="emitMove('MOVE_BACKWARD ' + props.speed)">
       <Triangle :fill="triangleColor" class="rotate-180" />
     </div>
     <div class="grid-item"></div>
@@ -51,6 +51,7 @@
 <script setup>
 import Joystick from 'vue-joystick-component';
 
+const props = defineProps(['speed']);
 const emit = defineEmits(['move']);
 
 const triangleColor = 'oklch(54.6% 0.245 262.881)';
@@ -63,7 +64,7 @@ const stop = () => {
 
 const move = ({ x, y, direction, distance }) => {
   //console.log('move', { x, y, direction, distance })
-  emitMove('MOVE ' + x + ' ' + y);
+  emitMove('MOVE ' + props.speed + ' ' + x + ' ' + y);
 }
 
 const emitMove = (move) => {
