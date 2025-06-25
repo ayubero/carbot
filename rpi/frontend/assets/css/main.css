@@ -11,3 +11,19 @@ h2 {
 .main-container {
   @apply w-full sm:w-1/2 h-full m-4 p-6 rounded-xl shadow-sm border-gray-200 border;
 }
+
+.console {
+  font-family: monospace, monospace;
+}
+
+/* Thumb Styles */
+/* Chrome, Safari, Opera, and Edge Chromium */
+input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none; /* Override default look */
+  appearance: none;
+  @apply bg-blue-500 w-4 h-4 rounded-full;
+}
+/* Firefox */
+input[type='range']::-moz-range-thumb {
+  @apply bg-blue-500 w-4 h-4 rounded-full border-0;
+}

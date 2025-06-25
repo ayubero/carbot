@@ -1,11 +1,11 @@
 <template>
   <div class="grid-container">
     <div class="grid-item"></div>
-    <div class="grid-item">
+    <div class="grid-item" @click="emitMove('MOVE_FORWARD')">
       <Triangle :fill="triangleColor" />
     </div>
     <div class="grid-item"></div>
-    <div class="grid-item">
+    <div class="grid-item" @click="emitMove('MOVE_LEFT')">
       <Triangle :fill="triangleColor" class="rotate-270" />
     </div>
     <div class="grid-item">
@@ -19,11 +19,11 @@
         @move="move"
       />
     </div>
-    <div class="grid-item">
+    <div class="grid-item" @click="emitMove('MOVE_RIGTH')">
       <Triangle :fill="triangleColor" class="rotate-90" />
     </div>
     <div class="grid-item"></div>
-    <div class="grid-item">
+    <div class="grid-item" @click="emitMove('MOVE_BACKWARD')">
       <Triangle :fill="triangleColor" class="rotate-180" />
     </div>
     <div class="grid-item"></div>
@@ -49,13 +49,25 @@
 </style>
 
 <script setup>
-import Joystick from 'vue-joystick-component'
+import Joystick from 'vue-joystick-component';
 
-let triangleColor = 'oklch(54.6% 0.245 262.881)';
+const emit = defineEmits(['move']);
 
-const start = () => console.log('start')
-const stop = () => console.log('stop')
+const triangleColor = 'oklch(54.6% 0.245 262.881)';
+
+const start = () => { /*console.log('start')*/ }
+
+const stop = () => {
+  emitMove('STOP');
+}
+
 const move = ({ x, y, direction, distance }) => {
-  console.log('move', { x, y, direction, distance })
+  //console.log('move', { x, y, direction, distance })
+  emitMove('MOVE ' + x + ' ' + y);
+}
+
+const emitMove = (move) => {
+  console.log(move);
+  emit('move', move);
 }
 </script>

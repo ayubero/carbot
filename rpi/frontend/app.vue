@@ -2,17 +2,19 @@
   <div class="w-full h-screen p-4 pb-12 pr-12 sm:pr-4 flex flex-col sm:flex-row justify-between">
     <div class="main-container">
       <h2>Control</h2>
-      <Toggle class="py-4" />
-      <!--Joystick
-        :size="100"
-        base-color="oklch(88.2% 0.059 254.128)"
-        stick-color="oklch(54.6% 0.245 262.881)"
-        :throttle="100"
-        @start="start"
-        @stop="stop"
-        @move="move"
-      />-->
-      <DirectionControl />
+      <Toggle class="py-4" @toggle="handleOnOff" />
+      <div class="py-4">
+        <p>Speed (cm/s): {{ speed }}</p>
+        <Slider v-model:value="speed" min="0" max="2" step="0.1" />
+      </div>
+      <DirectionControl @move="sendMessage" />
+      <div class="py-4">
+        <p>Console:</p>
+        <div class="console">
+          {{ lastMessage }}
+        </div>
+      </div>
+      
     </div>
     <div class="main-container">
       <h2>Charts</h2>
@@ -47,5 +49,18 @@
 </template>
 
 <script setup>
+const speed = ref(1.0);
+const lastMessage = ref('');
 
+const sendMessage = (message) => {
+  lastMessage.value = message;
+}
+
+const handleOnOff = (isToggled) => {
+  if (isToggled) {
+    sendMessage('TURN_ON\n')
+  } else {
+    sendMessage('TURN_OFF\n')
+  }
+}
 </script>

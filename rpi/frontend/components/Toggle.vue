@@ -8,5 +8,11 @@
 </template>
 
 <script setup>
-const isToggled = ref(false)
+const isToggled = ref(false);
+
+const emit = defineEmits(['toggle']);
+
+watch(isToggled, (newValue) => {
+  emit('toggle', newValue);
+})
 </script>
