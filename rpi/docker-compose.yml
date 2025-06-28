@@ -1,0 +1,28 @@
+version: "3.8"
+
+services:
+  backend:
+    build:
+      context: ./backend
+    ports:
+      - "5000:5000"
+    devices:
+      - "/dev/bus/usb:/dev/bus/usb"
+    privileged: true # Not safe for production
+    networks:
+      - app-network
+
+  frontend:
+    build:
+      context: ./frontend
+    ports:
+      - "3000:3000"
+    networks:
+      - app-network
+    environment:
+      # Tell Nuxt how to reach the backend
+      API_BASE_URL: http://backend:5000
+
+networks:
+  app-network:
+    driver: bridge
