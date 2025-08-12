@@ -4,8 +4,13 @@
       <h2>Control</h2>
       <!--<Toggle class="py-4" @toggle="handleOnOff" />-->
       <div class="py-4">
-        <p>Speed (cm/s): {{ speed }}</p>
-        <Slider v-model:value="speed" min="0" max="2" step="0.1" />
+        <p>Serial device:</p>
+        <SelectMenu v-model:value="serialDevice" :options="options"/>
+      </div>
+      
+      <div class="py-4">
+        <p>Speed: {{ speed }}</p>
+        <Slider v-model:value="speed" min="100" max="3000" step="100" />
       </div>
       <DirectionControl @move="sendMessage" :speed="speed" />
       <div class="py-4">
@@ -51,9 +56,33 @@
 <script setup>
 const speed = ref(1.0);
 const lastMessage = ref('');
+const appConfig = useAppConfig()
+const serialDevice = ref('/dev/ttyS0');
 
-const sendMessage = (message) => {
+// Get serial devices
+const options = ref([
+  { value: '/dev/ttyS0', text: '/dev/ttyS0' }
+]);
+const res = await $fetch(appConfig.api + '/list', {
+  method: 'GET',
+});
+options.value = res.map(item => ({
+  value: item.port_name,
+  text: item.port_name
+}));
+
+const sendMessage = async (message) => {
   lastMessage.value = message;
+  const res = await $fetch(appConfig.api + '/send', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: {
+      port_path: serialDevice.value,
+      message: message
+    }
+  });
 }
 
 const handleOnOff = (isToggled) => {
@@ -63,4 +92,8 @@ const handleOnOff = (isToggled) => {
     sendMessage('TURN_OFF\n')
   }
 }
+
+watch(speed, (speed, prevSpeed) => {
+  sendMessage('speed ' + speed)
+})
 </script>

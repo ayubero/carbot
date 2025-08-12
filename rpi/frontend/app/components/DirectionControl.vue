@@ -1,11 +1,11 @@
 <template>
   <div class="grid-container">
     <div class="grid-item"></div>
-    <div class="grid-item" @click="emitMove('MOVE_FORWARD ' + props.speed)">
+    <div class="grid-item" @click="emitMove('forward')">
       <Triangle :fill="triangleColor" />
     </div>
     <div class="grid-item"></div>
-    <div class="grid-item" @click="emitMove('MOVE_LEFT ' + props.speed)">
+    <div class="grid-item" @click="emitMove('left')">
       <Triangle :fill="triangleColor" class="rotate-270" />
     </div>
     <div class="grid-item">
@@ -19,11 +19,11 @@
         @move="move"
       />
     </div>
-    <div class="grid-item" @click="emitMove('MOVE_RIGTH ' + props.speed)">
+    <div class="grid-item" @click="emitMove('right ')">
       <Triangle :fill="triangleColor" class="rotate-90" />
     </div>
     <div class="grid-item"></div>
-    <div class="grid-item" @click="emitMove('MOVE_BACKWARD ' + props.speed)">
+    <div class="grid-item" @click="emitMove('backward')">
       <Triangle :fill="triangleColor" class="rotate-180" />
     </div>
     <div class="grid-item"></div>
@@ -59,12 +59,12 @@ const triangleColor = 'oklch(54.6% 0.245 262.881)';
 const start = () => { /*console.log('start')*/ }
 
 const stop = () => {
-  emitMove('STOP');
+  emitMove('stop');
 }
 
 const move = ({ x, y, direction, distance }) => {
   //console.log('move', { x, y, direction, distance })
-  emitMove('MOVE ' + props.speed + ' ' + x + ' ' + y);
+  //emitMove('MOVE ' + props.speed + ' ' + x + ' ' + y);
 }
 
 const emitMove = (move) => {

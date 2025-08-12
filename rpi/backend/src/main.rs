@@ -1,18 +1,31 @@
 use axum::{
+    http::Method,
     response::Html,
-    routing::get,
+    routing::{get, post},
     Router,
 };
-use tower_http::services::ServeDir;
+use tower_http::{
+    services::ServeDir,
+    cors::{CorsLayer, Any}, // import cors modules
+};
+use std::net::SocketAddr;
 
-mod usb;
-use usb::list_usb_devices;
+mod serial;
+use serial::{list_serial_devices, send};
 
 #[tokio::main]
 async fn main() {
+    // Build CORS layer allowing requests
+    let cors = CorsLayer::new()
+        .allow_origin(Any) // allows any origin (for dev; restrict in prod)
+        .allow_methods(vec![Method::GET, Method::POST])
+        .allow_headers(Any);
+
     let app = Router::new()
-        .route("/usb", get(list_usb_devices))
-        .nest_service("/", ServeDir::new("frontend/dist").not_found_service(not_found()));
+        .route("/list", get(list_serial_devices))
+        .route("/send", post(send))
+        .nest_service("/", ServeDir::new("frontend/dist").not_found_service(not_found()))
+        .layer(cors); // add the CORS middleware here
 
     let addr = "0.0.0.0:5000";
     println!("🚀 Server running at http://{}/", addr);
@@ -20,7 +33,6 @@ async fn main() {
     axum::serve(listener, app).await.unwrap();
 }
 
-// Return index.html for unknown routes (SPA support)
 fn not_found() -> axum::routing::MethodRouter {
     get(|| async {
         Html(std::fs::read_to_string("frontend/dist/index.html").unwrap_or_else(|_| {
