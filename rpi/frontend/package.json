@@ -11,8 +11,8 @@
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.1.10",
-    "nuxt": "^3.17.5",
-    "nuxt-charts": "^0.1.11",
+    "nuxt": "^4.0.3",
+    "nuxt-charts": "^0.2.3",
     "tailwindcss": "^4.1.10",
     "vue": "^3.5.17",
     "vue-joystick-component": "^0.1.3",

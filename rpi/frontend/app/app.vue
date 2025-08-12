@@ -2,7 +2,7 @@
   <div class="w-full h-screen p-4 pb-12 pr-12 sm:pr-4 flex flex-col sm:flex-row justify-between">
     <div class="main-container">
       <h2>Control</h2>
-      <Toggle class="py-4" @toggle="handleOnOff" />
+      <!--<Toggle class="py-4" @toggle="handleOnOff" />-->
       <div class="py-4">
         <p>Speed (cm/s): {{ speed }}</p>
         <Slider v-model:value="speed" min="0" max="2" step="0.1" />
