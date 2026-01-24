@@ -16,5 +16,15 @@ export default defineNuxtConfig({
     transpile: ['vue-joystick-component'],
   },
 
+  runtimeConfig: {
+    // Server-side only
+    apiBaseServer: 'http://backend:5000',
+    
+    // Public config available on both server and client
+    public: {
+      apiBase: process.env.NUXT_PUBLIC_API_BASE || 'http://localhost:5000'
+    }
+  },
+
   modules: ['nuxt-charts'],
 })

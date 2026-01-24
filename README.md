@@ -1,14 +1,11 @@
 # CarBot
 
-## Backend
+## Build docker
 
-Rust backend needs libudev developer headers:
+Move to rpi: `cd rpi`. Then, use `docker compose up --build`.
 
-```sudo apt update
-sudo apt install libudev-dev```
+## Test USB connection
 
-Try to send a message to Arduino:
+Try to send commands to the Arduino with `screen /dev/ttyUSB0 115200`.
 
-```curl -X POST http://localhost:3000/send \
-  -H "Content-Type: application/json" \
-  -d '{"port_path":"/dev/ttyACM0","message":"Hello Arduino!\n"}'```
+Allow the user to access USB: `sudo usermod -a -G dialout $USER`.

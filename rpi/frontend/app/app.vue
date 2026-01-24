@@ -56,14 +56,17 @@
 <script setup>
 const speed = ref(1.0);
 const lastMessage = ref('');
-const appConfig = useAppConfig()
+//const appConfig = useAppConfig()
 const serialDevice = ref('/dev/ttyS0');
+const config = useRuntimeConfig();
 
 // Get serial devices
 const options = ref([
-  { value: '/dev/ttyS0', text: '/dev/ttyS0' }
+  { value: '/dev/ttyS0', text: '/dev/ttyS0' },
+  { value: '/dev/ttyUSB0', text: '/dev/ttyUSB0' },
 ]);
-const res = await $fetch(appConfig.api + '/list', {
+const apiUrl = import.meta.server ? config.apiBaseServer : config.public.apiBase
+const res = await $fetch(apiUrl + '/list', {
   method: 'GET',
 });
 options.value = res.map(item => ({
@@ -73,7 +76,7 @@ options.value = res.map(item => ({
 
 const sendMessage = async (message) => {
   lastMessage.value = message;
-  const res = await $fetch(appConfig.api + '/send', {
+  const res = await $fetch(apiUrl + '/send', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json'

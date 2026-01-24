@@ -1,6 +1,13 @@
 # Use Rust image
 FROM rust:latest AS builder
 
+# Install system dependencies
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    libudev-dev \
+    pkg-config && \
+    rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 COPY . .
 

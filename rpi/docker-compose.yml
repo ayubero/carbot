@@ -1,5 +1,4 @@
 version: "3.8"
-
 services:
   backend:
     build:
@@ -8,7 +7,7 @@ services:
       - "5000:5000"
     devices:
       - "/dev/bus/usb:/dev/bus/usb"
-    privileged: true # Not safe for production
+    privileged: true
     networks:
       - app-network
 
@@ -20,8 +19,12 @@ services:
     networks:
       - app-network
     environment:
-      # Tell Nuxt how to reach the backend
-      API_BASE_URL: http://backend:5000
+      # For server-side requests in Nuxt
+      NUXT_API_BASE_SERVER: http://backend:5000
+      # For client-side requests (browser)
+      NUXT_PUBLIC_API_BASE: http://localhost:5000
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
 networks:
   app-network:
