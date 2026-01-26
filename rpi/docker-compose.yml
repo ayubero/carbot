@@ -1,8 +1,7 @@
-version: "3.8"
 services:
   backend:
-    build:
-      context: ./backend
+    image: eindres/backend:latest
+    restart: unless-stopped
     ports:
       - "5000:5000"
     devices:
@@ -12,17 +11,12 @@ services:
       - app-network
 
   frontend:
-    build:
-      context: ./frontend
+    image: eindres/frontend:latest
+    restart: unless-stopped
     ports:
       - "3000:3000"
     networks:
       - app-network
-    environment:
-      # For server-side requests in Nuxt
-      NUXT_API_BASE_SERVER: http://backend:5000
-      # For client-side requests (browser)
-      NUXT_PUBLIC_API_BASE: http://localhost:5000
     extra_hosts:
       - "host.docker.internal:host-gateway"
 

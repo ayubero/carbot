@@ -1,8 +1,12 @@
 # CarBot
 
-## Build docker
+## Build for Raspberry Pi
 
-Move to rpi: `cd rpi`. Then, use `docker compose up --build`.
+Navigate to the backend directory `cd ./backend` and run with `docker buildx build --platform linux/arm64 -t eindres/backend:latest --push .`.
+
+## On the Raspberry Pi
+
+Login to download the image with `docker login`, and launch the containers using `docker compose up -d`.
 
 ## Test USB connection
 

@@ -1,5 +1,5 @@
-# Base image
-FROM node:20-alpine
+# Use a multi-platform Node.js base image
+FROM --platform=$BUILDPLATFORM node:24-alpine AS builder
 
 WORKDIR /app
 
@@ -12,6 +12,13 @@ COPY . .
 
 # Build for production
 RUN npm run build
+
+# Use a minimal runtime image
+FROM node:24-alpine
+WORKDIR /app
+
+# Copy only the built output from the builder stage
+COPY --from=builder /app/.output ./.output
 
 # Expose Nuxt port
 EXPOSE 3000

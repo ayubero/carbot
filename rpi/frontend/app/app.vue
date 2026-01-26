@@ -2,6 +2,14 @@
   <div class="w-full h-screen p-4 pb-12 pr-12 sm:pr-4 flex flex-col sm:flex-row justify-between">
     <div class="main-container">
       <h2>Control</h2>
+      <div class="py-4">
+        <p>Backend URL:</p>
+        <div class="flex flex-row">
+          <InputText v-model:value="apiUrl"/>
+          <Button class="ml-4" @click="getUsbDevices">Fetch</Button>
+        </div>
+      </div>
+
       <!--<Toggle class="py-4" @toggle="handleOnOff" />-->
       <div class="py-4">
         <p>Serial device:</p>
@@ -57,26 +65,28 @@
 const speed = ref(1.0);
 const lastMessage = ref('');
 //const appConfig = useAppConfig()
+const apiUrl = ref('http://localhost:5000')
 const serialDevice = ref('/dev/ttyS0');
-const config = useRuntimeConfig();
 
 // Get serial devices
 const options = ref([
   { value: '/dev/ttyS0', text: '/dev/ttyS0' },
   { value: '/dev/ttyUSB0', text: '/dev/ttyUSB0' },
 ]);
-const apiUrl = import.meta.server ? config.apiBaseServer : config.public.apiBase
-const res = await $fetch(apiUrl + '/list', {
-  method: 'GET',
-});
-options.value = res.map(item => ({
-  value: item.port_name,
-  text: item.port_name
-}));
+//const apiUrl = config.public.apiBase;
+const getUsbDevices = async () => {
+  const res = await $fetch(apiUrl.value + '/list', {
+    method: 'GET',
+  });
+  options.value = res.map(item => ({
+    value: item.port_name,
+    text: item.port_name
+  }));
+}
 
 const sendMessage = async (message) => {
   lastMessage.value = message;
-  const res = await $fetch(apiUrl + '/send', {
+  const res = await $fetch(apiUrl.value + '/send', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json'
@@ -98,5 +108,9 @@ const handleOnOff = (isToggled) => {
 
 watch(speed, (speed, prevSpeed) => {
   sendMessage('speed ' + speed)
+})
+
+onMounted(() => {
+  getUsbDevices();
 })
 </script>
