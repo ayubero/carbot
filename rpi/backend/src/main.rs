@@ -11,7 +11,7 @@ use tower_http::{
 use std::net::SocketAddr;
 
 mod serial;
-use serial::{list_serial_devices, send};
+use serial::{list_serial_devices, connect, disconnect, send};
 
 #[tokio::main]
 async fn main() {
@@ -23,6 +23,8 @@ async fn main() {
 
     let app = Router::new()
         .route("/list", get(list_serial_devices))
+        .route("/connect", post(connect))
+        .route("/disconnect", post(disconnect))
         .route("/send", post(send))
         .nest_service("/", ServeDir::new("frontend/dist").not_found_service(not_found()))
         .layer(cors); // add the CORS middleware here

@@ -3,7 +3,15 @@ use axum::http::StatusCode;
 use rusb;
 use serde::{Serialize, Deserialize};
 use serialport::{SerialPort, DataBits, FlowControl, Parity, StopBits};
+use once_cell::sync::Lazy;
 use std::time::Duration;
+use tokio::sync::Mutex;
+use std::sync::Arc;
+
+// Global serial port instance
+static SERIAL_PORT: Lazy<Arc<Mutex<Option<Box<dyn SerialPort>>>>> = Lazy::new(|| {
+    Arc::new(Mutex::new(None))
+});
 
 #[derive(Serialize)]
 pub struct SerialDeviceInfo {
@@ -47,8 +55,49 @@ pub async fn list_serial_devices() -> Json<Vec<SerialDeviceInfo>> {
 }
 
 #[derive(Deserialize)]
+pub struct ConnectRequest {
+    port_path: String,
+}
+
+pub async fn connect(Json(payload): Json<ConnectRequest>) -> (StatusCode, String) {
+    let mut port_guard: tokio::sync::MutexGuard<'_, Option<Box<dyn serialport::SerialPort>>> =
+        SERIAL_PORT.lock().await;
+
+    if port_guard.is_some() {
+        return (StatusCode::BAD_REQUEST, "Serial port already connected".to_string());
+    }
+
+    let port = match serialport::new(&payload.port_path, 115200)
+        .data_bits(DataBits::Eight)
+        .flow_control(FlowControl::None)
+        .parity(Parity::None)
+        .stop_bits(StopBits::One)
+        .timeout(Duration::from_millis(100))
+        .open()
+    {
+        Ok(p) => p,
+        Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, format!("Port error: {}", e)),
+    };
+
+    *port_guard = Some(port);
+
+    (StatusCode::OK, format!("Connected to {}", payload.port_path))
+}
+
+pub async fn disconnect() -> (StatusCode, String) {
+    let mut port_guard: tokio::sync::MutexGuard<'_, Option<Box<dyn serialport::SerialPort>>> =
+        SERIAL_PORT.lock().await;
+
+    if let Some(port) = port_guard.take() {
+        // The port will be closed when it goes out of scope
+        (StatusCode::OK, "Disconnected from serial port".to_string())
+    } else {
+        (StatusCode::BAD_REQUEST, "Serial port not connected".to_string())
+    }
+}
+
+#[derive(Deserialize)]
 pub struct SerialMessage {
-    port_path: String, // e.g. "/dev/ttyACM0" or "COM3"
     message: String,
 }
 
@@ -79,19 +128,15 @@ async fn wait_for_arduino_ready(port: &mut Box<dyn SerialPort>) -> Result<(), St
 }
 
 pub async fn send(Json(payload): Json<SerialMessage>) -> (StatusCode, String) {
-    let mut port = match serialport::new(&payload.port_path, 115200)
-        .data_bits(DataBits::Eight)
-        .flow_control(FlowControl::None)
-        .parity(Parity::None)
-        .stop_bits(StopBits::One)
-        .timeout(Duration::from_millis(100))
-        .open()
-    {
-        Ok(p) => p,
-        Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, format!("Port error: {}", e)),
+    let mut port_guard: tokio::sync::MutexGuard<'_, Option<Box<dyn serialport::SerialPort>>> =
+        SERIAL_PORT.lock().await;
+
+    let port = match &mut *port_guard {
+        Some(p) => p,
+        None => return (StatusCode::BAD_REQUEST, "Serial port not connected".to_string()),
     };
 
-    if let Err(e) = wait_for_arduino_ready(&mut port).await {
+    if let Err(e) = wait_for_arduino_ready(port).await {
         return (StatusCode::INTERNAL_SERVER_ERROR, e);
     }
 
@@ -100,5 +145,5 @@ pub async fn send(Json(payload): Json<SerialMessage>) -> (StatusCode, String) {
         return (StatusCode::INTERNAL_SERVER_ERROR, format!("Write error: {}", e));
     }
 
-    (StatusCode::OK, format!("Sent '{}' to {}", payload.message, payload.port_path))
+    (StatusCode::OK, format!("Sent '{}'", payload.message))
 }

@@ -94,6 +94,7 @@ name = "backend"
 version = "0.1.0"
 dependencies = [
  "axum",
+ "once_cell",
  "rusb",
  "serde",
  "serde_json",

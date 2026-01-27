@@ -13,7 +13,12 @@
       <!--<Toggle class="py-4" @toggle="handleOnOff" />-->
       <div class="py-4">
         <p>Serial device:</p>
-        <SelectMenu v-model:value="serialDevice" :options="options"/>
+        <div class="flex flex-row">
+          <SelectMenu v-model:value="serialDevice" :options="options"/>
+          <Button class="ml-4" @click="connectToSerialPort">
+            {{ connected ? 'Disconnect' : 'Connect' }}
+          </Button>
+        </div>
       </div>
       
       <div class="py-4">
@@ -62,6 +67,7 @@
 </template>
 
 <script setup>
+const connected = ref(false);
 const speed = ref(1.0);
 const lastMessage = ref('');
 //const appConfig = useAppConfig()
@@ -82,21 +88,47 @@ const getUsbDevices = async () => {
     value: item.port_name,
     text: item.port_name
   }));
-}
+};
+
+const connectToSerialPort = async () => {
+  if (connected.value) { // Disconnect
+    try {
+      const res = await $fetch(apiUrl.value + '/disconnect', {
+        method: 'POST',
+      });
+      console.log(res);
+      connected.value = false; // Set connected to false on success
+    } catch (error) {
+      console.error("Failed to disconnect:", error);
+    }
+  } else { // Connect
+    try {
+      const res = await $fetch(apiUrl.value + '/connect', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ port_path: serialDevice.value })
+      });
+      console.log(res);
+      connected.value = true; // Set connected to true on success
+    } catch (error) {
+      console.error("Failed to connect:", error);
+      connected.value = false; // Ensure connected is false on failure
+    }
+  }
+};
 
 const sendMessage = async (message) => {
-  lastMessage.value = message;
   const res = await $fetch(apiUrl.value + '/send', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json'
     },
-    body: {
-      port_path: serialDevice.value,
-      message: message
-    }
+    body: JSON.stringify({ message: message })
   });
-}
+  console.log(res);
+};
 
 const handleOnOff = (isToggled) => {
   if (isToggled) {
@@ -104,13 +136,13 @@ const handleOnOff = (isToggled) => {
   } else {
     sendMessage('TURN_OFF\n')
   }
-}
+};
 
 watch(speed, (speed, prevSpeed) => {
   sendMessage('speed ' + speed)
-})
+});
 
 onMounted(() => {
   getUsbDevices();
-})
+});
 </script>
