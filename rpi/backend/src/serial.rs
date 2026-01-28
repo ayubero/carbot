@@ -1,6 +1,5 @@
 use axum::response::Json;
 use axum::http::StatusCode;
-use rusb;
 use serde::{Serialize, Deserialize};
 use serialport::{SerialPort, DataBits, FlowControl, Parity, StopBits};
 use once_cell::sync::Lazy;
@@ -88,7 +87,7 @@ pub async fn disconnect() -> (StatusCode, String) {
     let mut port_guard: tokio::sync::MutexGuard<'_, Option<Box<dyn serialport::SerialPort>>> =
         SERIAL_PORT.lock().await;
 
-    if let Some(port) = port_guard.take() {
+    if let Some(_port) = port_guard.take() {
         // The port will be closed when it goes out of scope
         (StatusCode::OK, "Disconnected from serial port".to_string())
     } else {

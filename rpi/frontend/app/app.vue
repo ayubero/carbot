@@ -35,8 +35,13 @@
       
     </div>
     <div class="main-container">
-      <h2>Charts</h2>
-      <Chart
+      <h2>Camera</h2>
+      <div>
+        <img class="mt-2 rounded-lg" v-if="imageSrc" :src="imageSrc" alt="Camera Stream" />
+        <p v-else>Connecting to camera was not possible.</p>
+      </div>
+      <h2 class="mt-4">Charts</h2>
+      <!--<Chart
         :data="[
           { x: '0', speed: 50 },
           { x: '1', speed: 55 },
@@ -61,7 +66,7 @@
         xLabel="Time"
         yLabel="Acceleration (cm²/s)"
         class="py-4"
-      />
+      />-->
     </div>
   </div>
 </template>
@@ -73,6 +78,11 @@ const lastMessage = ref('');
 //const appConfig = useAppConfig()
 const apiUrl = ref('http://localhost:5000')
 const serialDevice = ref('/dev/ttyS0');
+
+// Camera stream
+const imageSrc = ref('');
+let currentBlobUrl = null;
+let socket = null;
 
 // Get serial devices
 const options = ref([
@@ -130,19 +140,63 @@ const sendMessage = async (message) => {
   console.log(res);
 };
 
-const handleOnOff = (isToggled) => {
-  if (isToggled) {
-    sendMessage('TURN_ON\n')
-  } else {
-    sendMessage('TURN_OFF\n')
+const connectWebSocket = () => {
+  if (socket) {
+    socket.close();
   }
+
+  const wsUrl = apiUrl.value.replace('http://', 'ws://').replace('https://', 'wss://');
+  socket = new WebSocket(wsUrl + '/camera_ws');
+
+  socket.binaryType = 'arraybuffer';
+
+  socket.onopen = () => {
+    console.log('WebSocket connection established');
+  };
+
+  socket.onmessage = (event) => {
+    if (currentBlobUrl) {
+      URL.revokeObjectURL(currentBlobUrl);
+    }
+    const arrayBuffer = event.data;
+    const blob = new Blob([arrayBuffer], { type: 'image/jpeg' });
+    console.log(blob);
+    currentBlobUrl = URL.createObjectURL(blob);
+    imageSrc.value = currentBlobUrl;
+  };
+
+  socket.onerror = (error) => {
+    console.error('WebSocket error:', error);
+  };
+
+  socket.onclose = () => {
+    console.log('WebSocket connection closed. Reconnecting...');
+    if (reconnectAttempts < maxReconnectAttempts) {
+        reconnectAttempts++;
+        setTimeout(connectWebSocket, 1000);
+    } else {
+        console.error('Max reconnection attempts reached');
+    }
+  };
 };
 
 watch(speed, (speed, prevSpeed) => {
   sendMessage('speed ' + speed)
 });
 
-onMounted(() => {
-  getUsbDevices();
+watch(apiUrl, (url) => {
+  connectWebSocket();
 });
+
+onMounted(() => {
+  // Fetch USB devices
+  getUsbDevices();
+  connectWebSocket();
+});
+
+onUnmounted(() => {
+  if (socket) {
+    socket.close();
+  }
+})
 </script>
