@@ -41,32 +41,22 @@
         <p v-else>Connecting to camera was not possible.</p>
       </div>
       <h2 class="mt-4">Charts</h2>
-      <!--<Chart
-        :data="[
-          { x: '0', speed: 50 },
-          { x: '1', speed: 55 },
-          { x: '2', speed: 80 },
-          { x: '3', speed: 40 },
-          { x: '4', speed: 30 },
-        ]"
-        :categories="{speed: { name: 'Speed', color: '#155dfc'}}"
+      <AreaChart
+        :data="mpuData"
+        :categories="{
+          accelX: { name: 'Accel X', color: '#155dfc' },
+          accelY: { name: 'Accel Y', color: '#ff6b6b' },
+          accelZ: { name: 'Accel Z', color: '#4ecdc4' },
+          gyroX: { name: 'Gyro X', color: '#ffe66d' },
+          gyroY: { name: 'Gyro Y', color: '#95a5a6' },
+          gyroZ: { name: 'Gyro Z', color: '#9b59b6' },
+        }"
+        :height="300"
+        :xFormatter="xFormatter"
         xLabel="Time"
-        yLabel="Speed (cm/s)"
+        yLabel="Value"
         class="py-4"
       />
-      <Chart
-        :data="[
-          { x: '0', acceleration: 50 },
-          { x: '1', acceleration: 55 },
-          { x: '2', acceleration: 80 },
-          { x: '3', acceleration: 40 },
-          { x: '4', acceleration: 30 },
-        ]"
-        :categories="{acceleration: { name: 'Acceleration', color: '#155dfc'}}"
-        xLabel="Time"
-        yLabel="Acceleration (cm²/s)"
-        class="py-4"
-      />-->
     </div>
   </div>
 </template>
@@ -83,6 +73,10 @@ const serialDevice = ref('/dev/ttyS0');
 const imageSrc = ref('');
 let currentBlobUrl = null;
 let socket = null;
+
+// MPU-6050 data
+const mpuData = ref([]); // Store MPU6050 data
+const maxDataPoints = 100; // Limit the number of data points
 
 // Get serial devices
 const options = ref([
@@ -160,7 +154,6 @@ const connectWebSocket = () => {
     }
     const arrayBuffer = event.data;
     const blob = new Blob([arrayBuffer], { type: 'image/jpeg' });
-    console.log(blob);
     currentBlobUrl = URL.createObjectURL(blob);
     imageSrc.value = currentBlobUrl;
   };
@@ -180,6 +173,36 @@ const connectWebSocket = () => {
   };
 };
 
+// Format x-axis labels
+const xFormatter = (i) => mpuData.value[i]?.x;
+
+// Fetch MPU6050 data
+const fetchMPU6050Data = async () => {
+  try {
+    const res = await $fetch(apiUrl.value + '/read_imu', {
+      method: 'GET',
+    });
+    console.log(res);
+    const timestamp = new Date().toLocaleTimeString();
+    mpuData.value.push({
+      x: timestamp,
+      accelX: res.accel[0],
+      accelY: res.accel[1],
+      accelZ: res.accel[2],
+      gyroX: res.gyro[0],
+      gyroY: res.gyro[1],
+      gyroZ: res.gyro[2],
+    });
+
+    // Limit the number of data points
+    if (mpuData.value.length > maxDataPoints) {
+      mpuData.value.shift();
+    }
+  } catch (error) {
+    console.error('Failed to fetch MPU6050 data:', error);
+  }
+};
+
 watch(speed, (speed, prevSpeed) => {
   sendMessage('speed ' + speed)
 });
@@ -188,15 +211,22 @@ watch(apiUrl, (url) => {
   connectWebSocket();
 });
 
+let fetchInterval;
 onMounted(() => {
   // Fetch USB devices
   getUsbDevices();
   connectWebSocket();
+
+  // Fetch MPU-6050 data every 2 seconds
+  fetchInterval = setInterval(fetchMPU6050Data, 2000);
 });
 
 onUnmounted(() => {
   if (socket) {
     socket.close();
+  }
+  if (fetchInterval) {
+    clearInterval(fetchInterval);
   }
 })
 </script>

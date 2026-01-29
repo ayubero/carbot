@@ -3,6 +3,7 @@ use axum::{
     routing::{get, post},
     Router,
 };
+use tokio::sync::Mutex;
 use tower_http::cors::{CorsLayer, Any};
 use realsense_rust::{
     context::Context,
@@ -11,19 +12,24 @@ use realsense_rust::{
     kind::{Rs2Format, Rs2StreamKind}
 };
 use image::{ImageBuffer, Rgb};
-use std::time::Duration;
+use std::{sync::Arc, time::Duration};
 
+mod mpu6050;
+use mpu6050::MPU6050;
 mod serial;
-use serial::{list_serial_devices, connect, disconnect, send};
+use serial::{list_serial_devices, connect, disconnect, send, read_mpu6050};
 mod websocket;
 use websocket::{LAST_FRAME, websocket_handler};
 
 #[tokio::main]
 async fn main() {
+    // Initialize MPU6050
+    let mpu = Arc::new(Mutex::new(MPU6050::new().expect("Failed to initialize MPU6050")));
+    
     // Task to capture frames from the camera
     tokio::spawn(async move {
         let mut config = realsense_rust::config::Config::new();
-        let _ = config.enable_stream(Rs2StreamKind::Color, None, 848, 480, Rs2Format::Bgr8, 15);
+        let _ = config.enable_stream(Rs2StreamKind::Color, None, 640, 360, Rs2Format::Bgr8, 15);
 
         let context = Context::new().unwrap();
         let pipeline = InactivePipeline::try_from(&context).unwrap();
@@ -55,6 +61,8 @@ async fn main() {
         .route("/connect", post(connect))
         .route("/disconnect", post(disconnect))
         .route("/send", post(send))
+        .route("/read_imu", get(read_mpu6050))
+        .with_state(mpu)
         .route("/camera_ws", get(websocket_handler)) // Camera websocket
         .layer(cors); // CORS middleware
 

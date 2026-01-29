@@ -1,4 +1,4 @@
-use axum::response::Json;
+use axum::{extract::State, response::Json};
 use axum::http::StatusCode;
 use serde::{Serialize, Deserialize};
 use serialport::{SerialPort, DataBits, FlowControl, Parity, StopBits};
@@ -6,6 +6,8 @@ use once_cell::sync::Lazy;
 use std::time::Duration;
 use tokio::sync::Mutex;
 use std::sync::Arc;
+
+use crate::mpu6050::MPU6050;
 
 // Global serial port instance
 static SERIAL_PORT: Lazy<Arc<Mutex<Option<Box<dyn SerialPort>>>>> = Lazy::new(|| {
@@ -145,4 +147,19 @@ pub async fn send(Json(payload): Json<SerialMessage>) -> (StatusCode, String) {
     }
 
     (StatusCode::OK, format!("Sent '{}'", payload.message))
+}
+
+#[derive(Serialize)]
+pub struct MPU6050Data {
+    accel: (f32, f32, f32),
+    gyro: (f32, f32, f32),
+}
+
+pub async fn read_mpu6050(
+    State(mpu): State<Arc<Mutex<MPU6050>>>,
+) -> Result<Json<MPU6050Data>, String> {
+    let mut mpu = mpu.lock().await;
+    let accel = mpu.read_accel().map_err(|e| e.to_string())?;
+    let gyro = mpu.read_gyro().map_err(|e| e.to_string())?;
+    Ok(Json(MPU6050Data { accel, gyro }))
 }
