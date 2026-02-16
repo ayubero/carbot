@@ -15,3 +15,7 @@ Login to download the image with `docker login`, pull the images with `docker co
 Try to send commands to the Arduino with `screen /dev/ttyUSB0 115200`.
 
 Allow the user to access USB: `sudo usermod -a -G dialout $USER`.
+
+## Record video
+
+Inside the Raspberry Pi, get the video from the docker volume: `docker cp <container-name>:/recordings/output.mp4 ~/recordings/`. After this, it can be copied to another computer through scp for instance.

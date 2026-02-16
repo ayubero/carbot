@@ -52,12 +52,16 @@ WORKDIR /app
 
 # Install runtime dependencies
 RUN apt-get update && \
-    apt-get install -y libudev1 libusb-1.0-0 libssl3 && \
+    apt-get install -y libudev1 libusb-1.0-0 libssl3 ffmpeg && \
     rm -rf /var/lib/apt/lists/*
 
 # Copy the compiled library from the builder
 COPY --from=builder /usr/local/lib/librealsense2.so* /usr/local/lib/
 RUN ldconfig
+
+# Create a directory for recordings
+RUN mkdir -p /recordings
+VOLUME /recordings
 
 COPY --from=builder /app/backend .
 

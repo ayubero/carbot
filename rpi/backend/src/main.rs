@@ -16,6 +16,8 @@ use std::{sync::Arc, time::Duration};
 
 mod mpu6050;
 use mpu6050::MPU6050;
+mod recording;
+use recording::{IS_RECORDING, RECORDING_FRAMES, start_recording, stop_recording};
 mod serial;
 use serial::{list_serial_devices, connect, disconnect, send, read_mpu6050};
 mod websocket;
@@ -46,7 +48,18 @@ async fn main() {
             let frame_data = encode_frame(&color_frame);
             let last_frame = LAST_FRAME.clone();
             let mut frame_guard = last_frame.lock().await;
-            *frame_guard = Some(frame_data);
+            *frame_guard = Some(frame_data.clone());
+
+            // Store frame if recording
+            let is_recording = IS_RECORDING.lock().await;
+            if *is_recording {
+                let mut guard = RECORDING_FRAMES.lock().await;
+                if let Some(frames) = guard.as_mut() {
+                    frames.push(frame_data);
+                } else {
+                    *guard = Some(vec![frame_data]);
+                }
+            }
         }
     });
 
@@ -62,8 +75,10 @@ async fn main() {
         .route("/disconnect", post(disconnect))
         .route("/send", post(send))
         .route("/read_imu", get(read_mpu6050))
-        .with_state(mpu)
         .route("/camera_ws", get(websocket_handler)) // Camera websocket
+        .route("/start_recording", post(start_recording))
+        .route("/stop_recording", post(stop_recording))
+        .with_state(mpu)
         .layer(cors); // CORS middleware
 
     let addr = "0.0.0.0:5000";

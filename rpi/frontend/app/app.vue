@@ -40,6 +40,13 @@
         <img class="mt-2 rounded-lg" v-if="imageSrc" :src="imageSrc" alt="Camera Stream" />
         <p v-else>Connecting to camera was not possible.</p>
       </div>
+      <div>
+        <p>Record:</p>
+        <Button :class="{ 'bg-red-500': isRecording }" @click="isRecording = !isRecording">
+          <IconCircleFilled v-if="isRecording" />
+          <IconVideo v-else />
+        </Button>
+      </div>
       <h2 class="mt-4">Charts</h2>
       <AreaChart
         :data="mpuData"
@@ -62,6 +69,8 @@
 </template>
 
 <script setup>
+import { IconVideo, IconCircleFilled } from '@tabler/icons-vue';
+
 const connected = ref(false);
 const speed = ref(1.0);
 const lastMessage = ref('');
@@ -73,6 +82,7 @@ const serialDevice = ref('/dev/ttyS0');
 const imageSrc = ref('');
 let currentBlobUrl = null;
 let socket = null;
+const isRecording = ref(false);
 
 // MPU-6050 data
 const mpuData = ref([]); // Store MPU6050 data
@@ -209,6 +219,22 @@ watch(speed, (speed, prevSpeed) => {
 
 watch(apiUrl, (url) => {
   connectWebSocket();
+});
+
+watch(isRecording, async (_, wasRecording) => {
+  let endpoint = '';
+  if (wasRecording) { // Stop video
+    endpoint = '/stop_recording';
+  } else { // Start recoding video
+    endpoint = '/start_recording';
+  }
+  const res = await $fetch(apiUrl.value + endpoint, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+  });
+  console.log(res);
 });
 
 let fetchInterval;
