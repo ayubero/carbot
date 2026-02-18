@@ -47,7 +47,7 @@
             <IconCircleFilled v-if="isRecording" />
             <IconVideo v-else />
           </Button>
-          <a v-if="canDownload" class="ml-4" href="/download_recording" download="recording.mp4">Download Recording</a>
+          <a v-if="canDownload" class="ml-4" :href="apiUrl + '/download_recording'" download="recording.mp4">Download Recording</a>
         </div>
       </div>
       <h2 class="mt-4">Charts</h2>
