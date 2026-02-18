@@ -42,10 +42,13 @@
       </div>
       <div>
         <p>Record:</p>
-        <Button :class="{ 'bg-red-500': isRecording }" @click="isRecording = !isRecording">
-          <IconCircleFilled v-if="isRecording" />
-          <IconVideo v-else />
-        </Button>
+        <div class="flex flex-row items-center text-blue-500 underline">
+          <Button :class="{ 'bg-red-500': isRecording }" @click="isRecording = !isRecording">
+            <IconCircleFilled v-if="isRecording" />
+            <IconVideo v-else />
+          </Button>
+          <a v-if="canDownload" class="ml-4" href="/download_recording" download="recording.mp4">Download Recording</a>
+        </div>
       </div>
       <h2 class="mt-4">Charts</h2>
       <AreaChart
@@ -83,6 +86,7 @@ const imageSrc = ref('');
 let currentBlobUrl = null;
 let socket = null;
 const isRecording = ref(false);
+const canDownload = ref(false);
 
 // MPU-6050 data
 const mpuData = ref([]); // Store MPU6050 data
@@ -235,6 +239,10 @@ watch(isRecording, async (_, wasRecording) => {
     },
   });
   console.log(res);
+  // Show downloading link
+  if (wasRecording) {
+    canDownload.value = true;
+  }
 });
 
 let fetchInterval;

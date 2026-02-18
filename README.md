@@ -18,4 +18,4 @@ Allow the user to access USB: `sudo usermod -a -G dialout $USER`.
 
 ## Record video
 
-Inside the Raspberry Pi, get the video from the docker volume: `docker cp <container-name>:/recordings/output.mp4 ~/recordings/`. After this, it can be copied to another computer through scp for instance.
+Once the video has been recorded, a downloading link will be shown in the frontend. However, it is also possible to get the video from the docker volume: `docker cp <container-name>:/recordings/output.mp4 ~/recordings/` (you must be logged into the Raspberry Pi to run this command). After that, the video can be copied to another computer through scp for instance.

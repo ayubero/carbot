@@ -17,7 +17,7 @@ use std::{sync::Arc, time::Duration};
 mod mpu6050;
 use mpu6050::MPU6050;
 mod recording;
-use recording::{IS_RECORDING, RECORDING_FRAMES, start_recording, stop_recording};
+use recording::{IS_RECORDING, RECORDING_FRAMES, start_recording, stop_recording, download_recording};
 mod serial;
 use serial::{list_serial_devices, connect, disconnect, send, read_mpu6050};
 mod websocket;
@@ -78,6 +78,7 @@ async fn main() {
         .route("/camera_ws", get(websocket_handler)) // Camera websocket
         .route("/start_recording", post(start_recording))
         .route("/stop_recording", post(stop_recording))
+        .route("/download_recording", get(download_recording))
         .with_state(mpu)
         .layer(cors); // CORS middleware
 
