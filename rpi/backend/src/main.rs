@@ -6,18 +6,15 @@ use axum::{
 use tokio::sync::Mutex;
 use tower_http::cors::{CorsLayer, Any};
 use realsense_rust::{
-    context::Context,
-    frame::{PixelKind, ColorFrame},
-    pipeline::InactivePipeline,
-    kind::{Rs2Format, Rs2StreamKind}
+    context::Context, frame::{ColorFrame, DepthFrame, PixelKind}, kind::{Rs2Format, Rs2StreamKind}, pipeline::InactivePipeline
 };
-use image::{ImageBuffer, Rgb};
+use image::{GrayImage, ImageBuffer, Luma, Rgb, RgbImage};
 use std::{sync::Arc, time::Duration};
 
 mod mpu6050;
 use mpu6050::MPU6050;
 mod recording;
-use recording::{IS_RECORDING, RECORDING_FRAMES, start_recording, stop_recording, download_recording};
+use recording::{IS_RECORDING, COLOR_FRAMES, DEPTH_FRAMES, start_recording, stop_recording, download_recordings};
 mod serial;
 use serial::{list_serial_devices, connect, disconnect, send, read_mpu6050};
 mod websocket;
@@ -31,7 +28,9 @@ async fn main() {
     // Task to capture frames from the camera
     tokio::spawn(async move {
         let mut config = realsense_rust::config::Config::new();
-        let _ = config.enable_stream(Rs2StreamKind::Color, None, 640, 360, Rs2Format::Bgr8, 15);
+        let _ = config
+            .enable_stream(Rs2StreamKind::Color, None, 640, 360, Rs2Format::Bgr8, 15).unwrap()
+            .enable_stream(Rs2StreamKind::Depth, None, 640, 360, Rs2Format::Z16, 15).unwrap();
 
         let context = Context::new().unwrap();
         let pipeline = InactivePipeline::try_from(&context).unwrap();
@@ -40,24 +39,43 @@ async fn main() {
         loop {
             let timeout = Duration::from_millis(5000);
             let frames = pipeline.wait(Some(timeout)).unwrap();
+
+            // Get RGB frame
             let mut color_frames = frames.frames_of_type::<ColorFrame>();
             if color_frames.is_empty() {
                 continue;
             }
             let color_frame = color_frames.pop().unwrap();
-            let frame_data = encode_frame(&color_frame);
+            let color_frame_data = encode_color_frame(&color_frame);
             let last_frame = LAST_FRAME.clone();
             let mut frame_guard = last_frame.lock().await;
-            *frame_guard = Some(frame_data.clone());
+            *frame_guard = Some(color_frame_data.clone());
 
-            // Store frame if recording
+            // Get depth frame
+            let mut depth_frames = frames.frames_of_type::<DepthFrame>();
+            if depth_frames.is_empty() {
+                continue;
+            }
+            let depth_frame = depth_frames.pop().unwrap();
+            let depth_frame_data = encode_depth_frame(&depth_frame);
+
+            // Store frames if recording
             let is_recording = IS_RECORDING.lock().await;
             if *is_recording {
-                let mut guard = RECORDING_FRAMES.lock().await;
+                // Store RGB frame
+                let mut guard = COLOR_FRAMES.lock().await;
                 if let Some(frames) = guard.as_mut() {
-                    frames.push(frame_data);
+                    frames.push(color_frame_data);
                 } else {
-                    *guard = Some(vec![frame_data]);
+                    *guard = Some(vec![color_frame_data]);
+                }
+
+                // Store depth frame
+                let mut guard = DEPTH_FRAMES.lock().await;
+                if let Some(frames) = guard.as_mut() {
+                    frames.push(depth_frame_data);
+                } else {
+                    *guard = Some(vec![depth_frame_data]);
                 }
             }
         }
@@ -78,7 +96,7 @@ async fn main() {
         .route("/camera_ws", get(websocket_handler)) // Camera websocket
         .route("/start_recording", post(start_recording))
         .route("/stop_recording", post(stop_recording))
-        .route("/download_recording", get(download_recording))
+        .route("/download_recordings", get(download_recordings))
         .with_state(mpu)
         .layer(cors); // CORS middleware
 
@@ -88,7 +106,7 @@ async fn main() {
     axum::serve(listener, app).await.unwrap();
 }
 
-fn encode_frame(color_frame: &ColorFrame) -> Vec<u8> {
+fn encode_color_frame(color_frame: &ColorFrame) -> Vec<u8> {
     let width = color_frame.width() as u32;
     let height = color_frame.height() as u32;
 
@@ -101,6 +119,79 @@ fn encode_frame(color_frame: &ColorFrame) -> Vec<u8> {
     }
 
     let mut encoded_img = Vec::new();
-    img_buf.write_to(&mut std::io::Cursor::new(&mut encoded_img), image::ImageOutputFormat::Jpeg(90)).unwrap();
+    img_buf.write_to(&mut std::io::Cursor::new(&mut encoded_img), image::ImageOutputFormat::Png).unwrap();
+    encoded_img
+}
+
+fn depth_to_color(normalized: f32) -> [u8; 3] {
+    // Invert the normalized value so nearer points get higher values
+    let inverted = 1.0 - normalized;
+    let inverted = inverted.clamp(0.0, 1.0);
+
+    // Jet colormap: blue -> cyan -> green -> yellow -> red
+    let mut r = 0.0;
+    let mut g = 0.0;
+    let mut b = 0.0;
+
+    if inverted < 0.25 {
+        b = 0.5 + 2.0 * inverted;
+    } else if inverted < 0.5 {
+        b = 1.0;
+        g = -1.0 + 4.0 * inverted;
+    } else if inverted < 0.75 {
+        b = -3.0 + 4.0 * inverted;
+        g = 1.0;
+        r = -0.5 + 2.0 * inverted;
+    } else {
+        g = 1.0 - 4.0 * (inverted - 0.75);
+        r = 1.0;
+    }
+
+    [
+        (r * 255.0) as u8,
+        (g * 255.0) as u8,
+        (b * 255.0) as u8,
+    ]
+}
+
+fn encode_depth_frame(depth_frame: &DepthFrame) -> Vec<u8> {
+    let width = depth_frame.width();
+    let height = depth_frame.height();
+    let mut img_buf = RgbImage::new(width as u32, height as u32);
+
+    // Get the multiplier to convert raw units to meters (millimeters to meters: 0.001)
+    let units = depth_frame.depth_units().unwrap_or(0.001);
+
+    let raw_data: &[u16] = unsafe {
+        let ptr = depth_frame.get_data() as *const _ as *const u16; 
+        std::slice::from_raw_parts(ptr, (width * height) as usize)
+    };
+
+    // Visualization range in meters (adjust based on your environment)
+    let min_m = 0.2; 
+    let max_m = 5.0; 
+
+    for (i, &raw_val) in raw_data.iter().enumerate() {
+        let x = (i % width) as u32;
+        let y = (i / width) as u32;
+
+        let dist_m = raw_val as f32 * units;
+
+        let color = if raw_val == 0 {
+            [0, 0, 0] // Black for no-data/out-of-range
+        } else {
+            // Normalize to 0.0 - 1.0 for the colormap
+            let normalized = ((dist_m - min_m) / (max_m - min_m)).clamp(0.0, 1.0);
+            depth_to_color(normalized)
+        };
+
+        img_buf.put_pixel(x, y, Rgb(color));
+    }
+
+    let mut encoded_img = Vec::new();
+    img_buf.write_to(
+        &mut std::io::Cursor::new(&mut encoded_img),
+        image::ImageOutputFormat::Png,
+    ).unwrap();
     encoded_img
 }
