@@ -6,9 +6,9 @@ use axum::{
 use tokio::sync::Mutex;
 use tower_http::cors::{CorsLayer, Any};
 use realsense_rust::{
-    context::Context, frame::{ColorFrame, DepthFrame, PixelKind}, kind::{Rs2Format, Rs2StreamKind}, pipeline::InactivePipeline
+    context::Context, frame::{ColorFrame, DepthFrame, PixelKind}, kind::{Rs2Format, Rs2StreamKind}, pipeline::InactivePipeline, processing_blocks::align::Align
 };
-use image::{GrayImage, ImageBuffer, Luma, Rgb, RgbImage};
+use image::{ImageBuffer, Rgb, RgbImage};
 use std::{sync::Arc, time::Duration};
 
 mod mpu6050;
@@ -24,9 +24,13 @@ use websocket::{LAST_FRAME, websocket_handler};
 async fn main() {
     // Initialize MPU6050
     let mpu = Arc::new(Mutex::new(MPU6050::new().expect("Failed to initialize MPU6050")));
+
+    
+    let handle = tokio::runtime::Handle::current();
     
     // Task to capture frames from the camera
-    tokio::spawn(async move {
+    //tokio::spawn(async move {
+    std::thread::spawn(move || {
         let mut config = realsense_rust::config::Config::new();
         let _ = config
             .enable_stream(Rs2StreamKind::Color, None, 640, 360, Rs2Format::Bgr8, 15).unwrap()
@@ -36,48 +40,49 @@ async fn main() {
         let pipeline = InactivePipeline::try_from(&context).unwrap();
         let mut pipeline = pipeline.start(Some(config)).unwrap();
 
+        let mut align = Align::new(Rs2StreamKind::Color, 10).expect("Failed to create align block");
+
         loop {
             let timeout = Duration::from_millis(5000);
             let frames = pipeline.wait(Some(timeout)).unwrap();
 
-            // Get RGB frame
-            let mut color_frames = frames.frames_of_type::<ColorFrame>();
-            if color_frames.is_empty() {
-                continue;
-            }
-            let color_frame = color_frames.pop().unwrap();
-            let color_frame_data = encode_color_frame(&color_frame);
-            let last_frame = LAST_FRAME.clone();
-            let mut frame_guard = last_frame.lock().await;
-            *frame_guard = Some(color_frame_data.clone());
+            align.queue(frames).unwrap();
+            let aligned_frames = match align.wait(Duration::from_millis(100)) {
+                Ok(f) => f,
+                Err(_) => continue,
+            };
 
-            // Get depth frame
-            let mut depth_frames = frames.frames_of_type::<DepthFrame>();
-            if depth_frames.is_empty() {
+            let mut color_frames = aligned_frames.frames_of_type::<ColorFrame>();
+            let mut depth_frames = aligned_frames.frames_of_type::<DepthFrame>();
+
+            if color_frames.is_empty() || depth_frames.is_empty() {
                 continue;
             }
+
+            let color_frame = color_frames.pop().unwrap();
             let depth_frame = depth_frames.pop().unwrap();
+
+            let color_frame_data = encode_color_frame(&color_frame);
             let depth_frame_data = encode_depth_frame(&depth_frame);
 
-            // Store frames if recording
-            let is_recording = IS_RECORDING.lock().await;
-            if *is_recording {
-                // Store RGB frame
-                let mut guard = COLOR_FRAMES.lock().await;
-                if let Some(frames) = guard.as_mut() {
-                    frames.push(color_frame_data);
-                } else {
-                    *guard = Some(vec![color_frame_data]);
+            // Block on handle
+            handle.block_on(async {
+                // Update last frame
+                {
+                    let mut frame_guard = LAST_FRAME.lock().await;
+                    *frame_guard = Some(color_frame_data.clone());
                 }
 
-                // Store depth frame
-                let mut guard = DEPTH_FRAMES.lock().await;
-                if let Some(frames) = guard.as_mut() {
-                    frames.push(depth_frame_data);
-                } else {
-                    *guard = Some(vec![depth_frame_data]);
+                // Store frames if recording
+                let is_recording = IS_RECORDING.lock().await;
+                if *is_recording {
+                    let mut c_guard = COLOR_FRAMES.lock().await;
+                    c_guard.get_or_insert_with(Vec::new).push(color_frame_data);
+
+                    let mut d_guard = DEPTH_FRAMES.lock().await;
+                    d_guard.get_or_insert_with(Vec::new).push(depth_frame_data);
                 }
-            }
+            });
         }
     });
 
